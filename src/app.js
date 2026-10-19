@@ -1,10 +1,22 @@
 const express = require("express");
 const { errorHandler, methodNotAllowed, notFoundHandler } = require("./errorHandler");
+const {
+  MAX_USERS,
+  apiLimiter,
+  applyServerTimeouts,
+  createUserLimiter,
+  securityHeaders,
+  verifyJsonBody,
+} = require("./security");
 const { validateCreateUser, validateUserId } = require("./validation");
 
 const app = express();
 
-app.use(express.json({ limit: "10kb" }));
+app.disable("x-powered-by");
+app.use(securityHeaders());
+app.use(apiLimiter);
+app.post("/users", createUserLimiter);
+app.use(express.json({ limit: "10kb", verify: verifyJsonBody }));
 
 const users = [
   { id: 1, name: "Rahul", email: "rahul@example.com" },
@@ -56,6 +68,10 @@ app.post("/users", (req, res) => {
     });
   }
 
+  if (users.length >= MAX_USERS) {
+    return res.status(503).json({ message: "User storage limit reached" });
+  }
+
   const nextId = users.reduce((maxId, item) => Math.max(maxId, item.id), 0) + 1;
   const user = { id: nextId, name: result.value.name, email: result.value.email };
 
@@ -73,9 +89,11 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3000;
 
 if (require.main === module) {
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
+
+  applyServerTimeouts(server);
 }
 
 module.exports = app;
