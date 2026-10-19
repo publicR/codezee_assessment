@@ -1,9 +1,10 @@
 const express = require("express");
+const { errorHandler, methodNotAllowed, notFoundHandler } = require("./errorHandler");
 const { validateCreateUser, validateUserId } = require("./validation");
 
 const app = express();
 
-app.use(express.json());
+app.use(express.json({ limit: "10kb" }));
 
 const users = [
   { id: 1, name: "Rahul", email: "rahul@example.com" },
@@ -61,6 +62,13 @@ app.post("/users", (req, res) => {
   users.push(user);
   res.status(201).json(user);
 });
+
+app.all("/", methodNotAllowed("GET"));
+app.all("/users", methodNotAllowed("GET, POST"));
+app.all("/users/:id", methodNotAllowed("GET"));
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 
